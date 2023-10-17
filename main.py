@@ -15,7 +15,7 @@ def draw_grid(canvas, grid, cell_size):
     # Add a column on the right with background color
     canvas.create_rectangle(grid_size * cell_size, 0, (grid_size + 150) * cell_size, grid_size * cell_size, fill='lightgrey')
     # Display number of bombs in the right column
-    canvas.create_text((grid_size + 1.5) * cell_size, cell_size, text=f'Bombs: {len(bombs)}', font=('Arial', 14))
+    canvas.create_text((grid_size + 1.5) * cell_size, cell_size, text=f'Bombs: {max_bombs}', font=('Arial', 14))
 
 def draw_character(canvas, x, y, cell_size):
     canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='blue')
@@ -41,6 +41,7 @@ def place_bomb(x, y, grid, bombs, cell_size, max_bombs):
     if len(bombs) < max_bombs:
         row, col = (y) // cell_size, x // cell_size
         bombs.append((row, col, time.time()))
+        max_bombs -= 1
 
 is_exploding = False
 
