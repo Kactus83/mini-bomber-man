@@ -12,6 +12,10 @@ def draw_grid(canvas, grid, cell_size):
                 color = 'white'
             x, y = j * cell_size, i * cell_size
             canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill=color)
+    # Add a column on the right with background color
+    canvas.create_rectangle(grid_size * cell_size, 0, (grid_size + 150) * cell_size, grid_size * cell_size, fill='lightgrey')
+    # Display number of bombs in the right column
+    canvas.create_text((grid_size + 1.5) * cell_size, cell_size, text=f'Bombs: {len(bombs)}', font=('Arial', 14))
 
 def draw_character(canvas, x, y, cell_size):
     canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='blue')
@@ -20,22 +24,23 @@ def draw_bomb(canvas, x, y, cell_size):
     canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='red')
 
 def is_valid_move(x, y, grid, cell_size, grid_size):
-    row, col = y // cell_size, x // cell_size
+    row, col = (y) // cell_size, x // cell_size
     if 0 <= row < grid_size and 0 <= col < grid_size:
         return grid[row][col] == 0
     return False
 
 def place_hard_wall(x, y, grid, cell_size):
-    row, col = y // cell_size, x // cell_size
+    row, col = (y) // cell_size, x // cell_size
     grid[row][col] = 2
 
 def place_light_wall(x, y, grid, cell_size):
-    row, col = y // cell_size, x // cell_size
+    row, col = (y) // cell_size, x // cell_size
     grid[row][col] = 1
 
-def place_bomb(x, y, grid, bombs, cell_size):
-    row, col = y // cell_size, x // cell_size
-    bombs.append((row, col, time.time()))
+def place_bomb(x, y, grid, bombs, cell_size, max_bombs):
+    if len(bombs) < max_bombs:
+        row, col = (y) // cell_size, x // cell_size
+        bombs.append((row, col, time.time()))
 
 is_exploding = False
 
@@ -65,7 +70,7 @@ def explode_bomb(row, col, grid, cell_size, radius):
     is_exploding = False
 
 def on_key(event):
-    global player_x, player_y, bombs, is_exploding
+    global player_x, player_y, bombs, is_exploding, max_bombs
     if is_exploding:
         return
     new_x, new_y = player_x, player_y
@@ -79,7 +84,7 @@ def on_key(event):
     elif event.keysym == 'Right':
         new_x += cell_size
     elif event.keysym == 'space':
-        place_bomb(player_x, player_y, grid, bombs, cell_size)
+        place_bomb(player_x, player_y, grid, bombs, cell_size, max_bombs)
 
     if is_valid_move(new_x, new_y, grid, cell_size, grid_size):
         player_x, player_y = new_x, new_y
@@ -105,9 +110,10 @@ cell_size = 50
 player_x, player_y = 0, 0
 grid = [[0 for _ in range(grid_size)] for _ in range(grid_size)]
 bombs = []
+max_bombs = 3
 
 # Initialize canvas
-canvas = tk.Canvas(root, width=grid_size * cell_size, height=grid_size * cell_size)
+canvas = tk.Canvas(root, width=(grid_size + 150) * cell_size, height=grid_size * cell_size)
 canvas.pack()
 
 # Place some hard walls
@@ -202,4 +208,3 @@ canvas.focus_set()
 
 # Run the Tkinter event loop
 root.mainloop()
-import tkinter as tk
