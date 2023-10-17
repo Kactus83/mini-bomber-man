@@ -1,213 +1,154 @@
+import random
 import tkinter as tk
 import time
 
-# Constants and grid initialization
-grid_size = 20
-cell_size = 50
-player_x, player_y = 0, 0
-grid = [[0 for _ in range(grid_size)] for _ in range(grid_size)]
-bombs = []
-max_bombs = 3
-
-def draw_grid(canvas, grid, cell_size):
-    for i, row in enumerate(grid):
-        for j, cell in enumerate(row):
-            if cell == 1:
-                color = 'grey'
-            elif cell == 2:
-                color = 'black'
-            else:
+class Grid:
+    def __init__(self, canvas, size, cell_size):
+        self.canvas = canvas
+        self.size = size
+        self.cell_size = cell_size
+        self.grid = [[0 for _ in range(size)] for _ in range(size)]
+    
+    def draw(self, bombs):
+        for i, row in enumerate(self.grid):
+            for j, cell in enumerate(row):
                 color = 'white'
-            x, y = j * cell_size, i * cell_size
-            canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill=color)
-    # Add a column on the right with background color
-    canvas.create_rectangle(grid_size * cell_size, 0, (grid_size + 150) * cell_size, grid_size * cell_size, fill='lightgrey')
-    # Display number of bombs in the right column
-    canvas.create_text((grid_size + 1.5) * cell_size, cell_size, text=f'Bombs: {max_bombs}', font=('Arial', 14))
+                if cell == 1:
+                    color = 'grey'
+                elif cell == 2:
+                    color = 'black'
+                x, y = j * self.cell_size, i * self.cell_size
+                self.canvas.create_rectangle(x, y, x + self.cell_size, y + self.cell_size, fill=color)
 
-def draw_character(canvas, x, y, cell_size):
-    canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='blue')
+        for bomb in bombs:
+            bomb.draw(self.canvas, self.cell_size)
 
-def draw_bomb(canvas, x, y, cell_size):
-    canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='red')
+class Player:
+    def __init__(self, x, y, cell_size):
+        self.x = x
+        self.y = y
+        self.cell_size = cell_size
 
-def is_valid_move(x, y, grid, cell_size, grid_size):
-    row, col = (y) // cell_size, x // cell_size
-    if 0 <= row < grid_size and 0 <= col < grid_size:
-        return grid[row][col] == 0
-    return False
+    def draw(self, canvas):
+        canvas.create_rectangle(self.x, self.y, self.x + self.cell_size, self.y + self.cell_size, fill='blue')
 
-def place_hard_wall(x, y, grid, cell_size):
-    row, col = (y) // cell_size, x // cell_size
-    grid[row][col] = 2
+class Bomb:
+    def __init__(self, row, col, time_placed):
+        self.row = row
+        self.col = col
+        self.time_placed = time_placed
+    
+    def draw(self, canvas, cell_size):
+        x, y = self.col * cell_size, self.row * cell_size
+        canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='red')
 
-def place_light_wall(x, y, grid, cell_size):
-    row, col = (y) // cell_size, x // cell_size
-    grid[row][col] = 1
+class MiniBomberman:
+    def __init__(self):
+        self.grid_size = 20
+        self.cell_size = 50
+        self.player_x, self.player_y = 0, 0
+        self.grid = [[0 for _ in range(self.grid_size)] for _ in range(self.grid_size)]
+        self.bombs = []
+        self.max_bombs = 3
+        self.root = tk.Tk()
+        self.root.title('Mini Bomberman')
+        self.canvas = tk.Canvas(self.root, width=(self.grid_size + 150) * self.cell_size, height=self.grid_size * self.cell_size)
+        self.canvas.pack()
+        self.canvas.bind('<Key>', self.on_key)
+        self.canvas.focus_set()
 
-def place_bomb(x, y, grid, bombs, cell_size):
-    global max_bombs
-    if len(bombs) < max_bombs:
-        row, col = (y) // cell_size, x // cell_size
-        bombs.append((row, col, time.time()))
-        max_bombs -= 1
-        draw_grid(canvas, grid, cell_size) 
+    def draw_grid(self):
+        for i, row in enumerate(self.grid):
+            for j, cell in enumerate(row):
+                color = 'grey' if cell == 1 else 'black' if cell == 2 else 'white'
+                x, y = j * self.cell_size, i * self.cell_size
+                self.canvas.create_rectangle(x, y, x + self.cell_size, y + self.cell_size, fill=color)
+        self.canvas.create_rectangle(self.grid_size * self.cell_size, 0, (self.grid_size + 150) * self.cell_size, self.grid_size * self.cell_size, fill='lightgrey')
+        self.canvas.create_text((self.grid_size + 1.5) * self.cell_size, self.cell_size, text=f'Bombs: {self.max_bombs}', font=('Arial', 14))
 
-is_exploding = False
+    def initialize_walls(self, n_light_walls=50, n_hard_walls=50):
+        """
+        Initialize walls on the grid.
+        
+        Parameters:
+            n_light_walls (int): Number of light walls to place.
+            n_hard_walls (int): Number of hard walls to place.
+        """
+        available_positions = [(row, col) for row in range(self.grid_size) for col in range(self.grid_size)]
+        available_positions.remove((self.player_y // self.cell_size, self.player_x // self.cell_size)) 
+        random.shuffle(available_positions)
 
-def explode_bomb(row, col, grid, cell_size, radius):
-    global is_exploding
-    is_exploding = True
-    for i in range(-radius, radius+1):
-        for j in range(-radius, radius+1):
-            if abs(i) + abs(j) <= radius:
-                r, c = row + i, col + j
-                if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
-                    if grid[r][c] == 1:
-                        grid[r][c] = 0
-                        x, y = c * cell_size, r * cell_size
-                        canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='red')
-    canvas.update()
-    time.sleep(1)
-    for i in range(-radius, radius+1):
-        for j in range(-radius, radius+1):
-            if abs(i) + abs(j) <= radius:
-                r, c = row + i, col + j
-                if 0 <= r < len(grid) and 0 <= c < len(grid[0]):
-                    if grid[r][c] != 1:
-                        x, y = c * cell_size, r * cell_size
-                        canvas.create_rectangle(x, y, x + cell_size, y + cell_size, fill='white')
-    canvas.update()
-    is_exploding = False
+        for row, col in available_positions[:n_light_walls]:
+            self.grid[row][col] = 1  # Light wall
 
-def on_key(event):
-    global player_x, player_y, bombs, is_exploding, max_bombs
-    if is_exploding:
-        return
-    new_x, new_y = player_x, player_y
+        for row, col in available_positions[n_light_walls:n_light_walls + n_hard_walls]:
+            self.grid[row][col] = 2  # Hard wall
 
-    if event.keysym == 'Up':
-        new_y -= cell_size
-    elif event.keysym == 'Down':
-        new_y += cell_size
-    elif event.keysym == 'Left':
-        new_x -= cell_size
-    elif event.keysym == 'Right':
-        new_x += cell_size
-    elif event.keysym == 'space':
-        place_bomb(player_x, player_y, grid, bombs, cell_size)
+    def draw_character(self):
+        self.canvas.create_rectangle(self.player_x, self.player_y, self.player_x + self.cell_size, self.player_y + self.cell_size, fill='blue')
 
-    if is_valid_move(new_x, new_y, grid, cell_size, grid_size):
-        player_x, player_y = new_x, new_y
+    def draw_bomb(self, x: int, y: int):
+        self.canvas.create_rectangle(x, y, x + self.cell_size, y + self.cell_size, fill='red')
 
-    canvas.delete('all')
-    draw_grid(canvas, grid, cell_size)
-    for bomb in bombs:
-        row, col, time_placed = bomb
-        if time.time() - time_placed > 2:
-            explode_bomb(row, col, grid, cell_size, 2)
-            bombs.remove(bomb)
-            draw_grid(canvas, grid, cell_size)
-        else:
-            draw_bomb(canvas, col * cell_size, row * cell_size, cell_size)
-    draw_character(canvas, player_x, player_y, cell_size)
+    def is_valid_move(self, x: int, y: int) -> bool:
+        row, col = y // self.cell_size, x // self.cell_size
+        return 0 <= row < self.grid_size and 0 <= col < self.grid_size and self.grid[row][col] == 0
 
-root = tk.Tk()
-root.title('Mini Bomberman')
+    def place_wall(self, x: int, y: int, wall_type: int):
+        row, col = y // self.cell_size, x // self.cell_size
+        self.grid[row][col] = wall_type
 
-# Initialize canvas
-canvas = tk.Canvas(root, width=(grid_size + 150) * cell_size, height=grid_size * cell_size)
-canvas.pack()
+    def place_bomb(self):
+        if len(self.bombs) < self.max_bombs:
+            row, col = self.player_y // self.cell_size, self.player_x // self.cell_size
+            self.bombs.append((row, col, time.time()))
+            self.max_bombs -= 1
 
-# Place some hard walls
-hard_walls = [
-    (50, 150),
-    (50, 450),
-    (100, 100),
-    (100, 400),
-    (150, 250),
-    (150, 600),
-    (200, 100),
-    (200, 200),
-    (200, 450),
-    (250, 650),
-    (300, 100),
-    (350, 250),
-    (400, 200),
-    (400, 300),
-    (450, 150),
-    (450, 400),
-    (500, 150),
-    (500, 450),
-    (600, 100),
-    (600, 400),
-    (650, 250),
-    (650, 300),
-    (700, 100),
-    (700, 200),
-    (700, 450),
-    (750, 350),
-    (800, 100),
-    (850, 250),
-    (900, 200),
-    (900, 300),
-    (950, 150),
-    (950, 400)
-]
+    def explode_bomb(self, row: int, col: int, radius: int):
+        for i in range(-radius, radius + 1):
+            for j in range(-radius, radius + 1):
+                if abs(i) + abs(j) <= radius:
+                    r, c = row + i, col + j
+                    if 0 <= r < len(self.grid) and 0 <= c < len(self.grid[0]) and self.grid[r][c] == 1:
+                        self.grid[r][c] = 0
 
-hard_walls = sorted(hard_walls, key=lambda w: (w[0], w[1]))
+    def on_key(self, event):
+        new_x, new_y = self.player_x, self.player_y
+        if event.keysym == 'Up':
+            new_y -= self.cell_size
+        elif event.keysym == 'Down':
+            new_y += self.cell_size
+        elif event.keysym == 'Left':
+            new_x -= self.cell_size
+        elif event.keysym == 'Right':
+            new_x += self.cell_size
+        elif event.keysym == 'space':
+            self.place_bomb()
 
-for hard_wall in hard_walls:
-    place_hard_wall(hard_wall[0], hard_wall[1], grid, cell_size)
+        if self.is_valid_move(new_x, new_y):
+            self.player_x, self.player_y = new_x, new_y
 
-# Place some light walls
-light_walls = [
-    (50, 200),
-    (50, 800),
-    (100, 150),
-    (100, 200),
-    (150, 200),
-    (150, 350),
-    (200, 50),
-    (200, 100),
-    (250, 450),
-    (300, 350),
-    (350, 100),
-    (350, 600),
-    (400, 300),
-    (400, 300),
-    (450, 150),
-    (450, 400),
-    (550, 200),
-    (550, 800),
-    (600, 150),
-    (600, 200),
-    (650, 200),
-    (650, 350),
-    (700, 50),
-    (700, 100),
-    (750, 450),
-    (800, 350),
-    (850, 100),
-    (850, 600),
-    (900, 300),
-    (900, 650),
-    (950, 750),
-    (950, 800)
-]
+        self.canvas.delete('all')
+        self.draw_grid()
+        for bomb in self.bombs:
+            row, col, time_placed = bomb
+            if time.time() - time_placed > 2:
+                self.explode_bomb(row, col, 2)
+                self.bombs.remove(bomb)
+                self.draw_grid()
+            else:
+                self.draw_bomb(col * self.cell_size, row * self.cell_size)
+        self.draw_character()
 
-light_walls = sorted(light_walls, key=lambda w: (w[0], w[1]))
+    def run(self):
+        self.root.mainloop()
 
-for light_wall in light_walls:
-    place_light_wall(light_wall[0], light_wall[1], grid, cell_size)
-
-# Draw grid and character
-draw_grid(canvas, grid, cell_size)
-draw_character(canvas, player_x, player_y, cell_size)
-
-# Key binding
-canvas.bind('<Key>', on_key)
-canvas.focus_set()
-
-# Run the Tkinter event loop
-root.mainloop()
+if __name__ == '__main__':
+    game = MiniBomberman()
+    # Initialize walls before drawing
+    game.initialize_walls()
+    # Initial drawing
+    game.draw_grid()
+    game.draw_character()
+    # Run the Tkinter event loop
+    game.run()
