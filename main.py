@@ -1,6 +1,14 @@
 import tkinter as tk
 import time
 
+# Constants and grid initialization
+grid_size = 20
+cell_size = 50
+player_x, player_y = 0, 0
+grid = [[0 for _ in range(grid_size)] for _ in range(grid_size)]
+bombs = []
+max_bombs = 3
+
 def draw_grid(canvas, grid, cell_size):
     for i, row in enumerate(grid):
         for j, cell in enumerate(row):
@@ -37,11 +45,13 @@ def place_light_wall(x, y, grid, cell_size):
     row, col = (y) // cell_size, x // cell_size
     grid[row][col] = 1
 
-def place_bomb(x, y, grid, bombs, cell_size, max_bombs):
+def place_bomb(x, y, grid, bombs, cell_size):
+    global max_bombs
     if len(bombs) < max_bombs:
         row, col = (y) // cell_size, x // cell_size
         bombs.append((row, col, time.time()))
         max_bombs -= 1
+        draw_grid(canvas, grid, cell_size) 
 
 is_exploding = False
 
@@ -85,7 +95,7 @@ def on_key(event):
     elif event.keysym == 'Right':
         new_x += cell_size
     elif event.keysym == 'space':
-        place_bomb(player_x, player_y, grid, bombs, cell_size, max_bombs)
+        place_bomb(player_x, player_y, grid, bombs, cell_size)
 
     if is_valid_move(new_x, new_y, grid, cell_size, grid_size):
         player_x, player_y = new_x, new_y
@@ -104,14 +114,6 @@ def on_key(event):
 
 root = tk.Tk()
 root.title('Mini Bomberman')
-
-# Constants and grid initialization
-grid_size = 20
-cell_size = 50
-player_x, player_y = 0, 0
-grid = [[0 for _ in range(grid_size)] for _ in range(grid_size)]
-bombs = []
-max_bombs = 3
 
 # Initialize canvas
 canvas = tk.Canvas(root, width=(grid_size + 150) * cell_size, height=grid_size * cell_size)
